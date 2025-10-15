@@ -54,6 +54,7 @@ public class PreferredMeetingPlaceSeeder {
 
             if (responsecode != 200) {
                 logger.atError().log("HTTP request failed with response code: " + responsecode);
+                createDefaultMeetingPlaces(user);
             } else {
                 // Simplify reading text from a character input stream
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -70,6 +71,12 @@ public class PreferredMeetingPlaceSeeder {
                 ObjectMapper objectMapper = new ObjectMapper();
                 JsonNode jsonResponse = objectMapper.readTree(response.toString());
                 JsonNode addresses = jsonResponse.get("features");
+
+                if (addresses == null || addresses.isEmpty()) {
+                    createDefaultMeetingPlaces(user);
+                    return;
+                }
+
                 for (JsonNode address : addresses) {
                     JsonNode addressDetails = address.get("properties");
 
@@ -85,6 +92,27 @@ public class PreferredMeetingPlaceSeeder {
             }
         } catch (Exception e) {
             logger.atError().log("Error occurred while fetching data from the API: " + e.getMessage());
+            createDefaultMeetingPlaces(user);
+        }
+    }
+
+    private void createDefaultMeetingPlaces(User user) {
+        String[] places = {
+            "Place de la République",
+            "Gare Centrale",
+            "Café du Commerce",
+            "Parc Municipal"
+        };
+
+        for (String placeName : places) {
+            PreferredMeetingPlace place = new PreferredMeetingPlace(
+                placeName,
+                "Adresse exemple",
+                user.getCity(),
+                user.getPostalCode(),
+                user
+            );
+            this.preferredMeetingPlaceRepository.save(place);
         }
     }
 }
