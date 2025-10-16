@@ -28,7 +28,7 @@ pipeline {
                 script {
                     // Extract version from pom.xml
                     def pomVersion = sh(
-                        script: './mvnw help:evaluate -Dexpression=project.version -q -DforceStdout',
+                        script: './mvnw -B help:evaluate -Dexpression=project.version -q -DforceStdout',
                         returnStdout: true
                     ).trim()
 
@@ -56,21 +56,21 @@ pipeline {
         stage('Compile') {
             steps {
                 echo 'Compiling source code...'
-                sh './mvnw clean compile'
+                sh './mvnw -B clean compile'
             }
         }
 
         stage('Run Tests') {
             steps {
                 echo 'Running unit tests...'
-                sh './mvnw test -Dtest=!*IntegrationTest'
+                sh './mvnw -B test -Dtest=!*IntegrationTest'
             }
         }
 
         stage('Package') {
             steps {
                 echo 'Packaging application...'
-                sh './mvnw package -DskipTests'
+                sh './mvnw -B package -DskipTests'
             }
         }
 
@@ -137,7 +137,7 @@ pipeline {
         //             // Increment version for next development cycle
         //             sh '''
         //                 # Get current version without -SNAPSHOT
-        //                 CURRENT_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/-SNAPSHOT//')
+        //                 CURRENT_VERSION=$(./mvnw -B help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/-SNAPSHOT//')
 
         //                 # Increment patch version
         //                 NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
@@ -146,7 +146,7 @@ pipeline {
         //                 echo "New version: ${NEW_VERSION}-SNAPSHOT"
 
         //                 # Update pom.xml version
-        //                 ./mvnw versions:set -DnewVersion=${NEW_VERSION}-SNAPSHOT -DgenerateBackupPoms=false
+        //                 ./mvnw -B versions:set -DnewVersion=${NEW_VERSION}-SNAPSHOT -DgenerateBackupPoms=false
 
         //                 echo "Version bumped to ${NEW_VERSION}-SNAPSHOT"
         //             '''
@@ -167,7 +167,7 @@ pipeline {
 
         //                 # Apply version changes
         //                 git add pom.xml
-        //                 NEW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+        //                 NEW_VERSION=$(./mvnw -B help:evaluate -Dexpression=project.version -q -DforceStdout)
         //                 git commit -m "Bump version to ${NEW_VERSION} [skip ci]" || true
 
         //                 # Push to dev (will fail if there are conflicts, which is safer)
