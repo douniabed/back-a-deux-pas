@@ -1,0 +1,195 @@
+pipeline {
+    agent {
+        label 'java-node'
+    }
+
+    options {
+        ansiColor('xterm')
+        buildDiscarder(logRotator(numToKeepStr: '5'))
+    }
+
+    environment {
+        APP_NAME = 'back-a-deux-pas'
+        NEXUS_URL = 'http://nexus.local:8085'
+        NEXUS_REPO = 'maven-adp-back'
+        NEXUS_CREDENTIALS = credentials('nexus-credentials')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "Checking out code from ${env.BRANCH_NAME} branch"
+                checkout scm
+            }
+        }
+
+        stage('Determine Version') {
+            steps {
+                script {
+                    // Extract version from pom.xml
+                    def pomVersion = sh(
+                        script: './mvnw help:evaluate -Dexpression=project.version -q -DforceStdout',
+                        returnStdout: true
+                    ).trim()
+
+                    if (env.BRANCH_NAME == 'main') {
+                        // Remove -SNAPSHOT suffix for releases
+                        env.APP_VERSION = pomVersion.replace('-SNAPSHOT', '') + "-${env.GIT_COMMIT.take(7)}"
+                        env.IS_RELEASE = 'true'
+                        env.ARTIFACT_TYPE = 'release'
+                        env.ARTIFACT_VERSION = pomVersion
+                    } else {
+                        // Keep -SNAPSHOT for dev branches
+                        env.APP_VERSION = pomVersion
+                        env.IS_RELEASE = 'false'
+                        env.ARTIFACT_TYPE = 'snapshot'
+                        env.ARTIFACT_VERSION = pomVersion
+                    }
+
+                    echo "Application Version: ${env.APP_VERSION}"
+                    echo "Artifact Type: ${env.ARTIFACT_TYPE}"
+                    echo "Artifact Version (from pom.xml): ${env.ARTIFACT_VERSION}"
+                }
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                echo 'Compiling source code...'
+                sh './mvnw clean compile'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo 'Running unit tests...'
+                sh './mvnw test'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                echo 'Packaging application...'
+                sh './mvnw package -DskipTests'
+            }
+        }
+
+        stage('Create Version File') {
+            steps {
+                script {
+                    echo 'Creating backend-version.json file...'
+                    def versionInfo = [
+                        name: env.APP_NAME,
+                        version: env.APP_VERSION,
+                        branch: env.BRANCH_NAME,
+                        commit: env.GIT_COMMIT,
+                        buildUrl: env.BUILD_URL,
+                        buildTime: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
+                        artifactType: env.ARTIFACT_TYPE
+                    ]
+
+                    // Create backend-version.json in src/main/resources/static for HTTP access
+                    sh 'mkdir -p src/main/resources/static'
+                    writeJSON file: 'src/main/resources/static/backend-version.json', json: versionInfo, pretty: 4
+
+                    echo "Version file created:"
+                    sh 'cat src/main/resources/static/backend-version.json'
+                }
+            }
+        }
+
+        stage('Upload Artifact to Nexus') {
+            steps {
+                script {
+                    echo "Uploading JAR to Nexus ${env.ARTIFACT_TYPE} repository..."
+
+                    nexusArtifactUploader(
+                        nexusVersion: 'nexus3',
+                        protocol: 'http',
+                        nexusUrl: 'nexus.local:8085',
+                        groupId: 'fr.a-deux-pas',
+                        version: env.APP_VERSION,
+                        repository: env.NEXUS_REPO,
+                        credentialsId: 'nexus-credentials',
+                        artifacts: [
+                            [
+                                artifactId: env.APP_NAME,
+                                classifier: '',
+                                file: "target/${env.APP_NAME}-${env.ARTIFACT_VERSION}.jar",
+                                type: 'jar'
+                            ]
+                        ]
+                    )
+
+                    echo "JAR uploaded successfully to Nexus"
+                }
+            }
+        }
+
+        // stage('Create Release') {
+        //     when {
+        //         branch 'main'
+        //     }
+        //     steps {
+        //         script {
+        //             echo "Creating release for version ${env.APP_VERSION}..."
+
+        //             // Increment version for next development cycle
+        //             sh '''
+        //                 # Get current version without -SNAPSHOT
+        //                 CURRENT_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/-SNAPSHOT//')
+
+        //                 # Increment patch version
+        //                 NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
+
+        //                 echo "Current version: ${CURRENT_VERSION}"
+        //                 echo "New version: ${NEW_VERSION}-SNAPSHOT"
+
+        //                 # Update pom.xml version
+        //                 ./mvnw versions:set -DnewVersion=${NEW_VERSION}-SNAPSHOT -DgenerateBackupPoms=false
+
+        //                 echo "Version bumped to ${NEW_VERSION}-SNAPSHOT"
+        //             '''
+
+        //             // Commit version bump directly to dev branch (no PR)
+        //             sh '''
+        //                 git config user.name "Jenkins"
+        //                 git config user.email "jenkins@adeuxpas.com"
+
+        //                 # Fetch latest dev branch
+        //                 git fetch origin dev:dev
+
+        //                 # Checkout dev branch
+        //                 git checkout dev
+
+        //                 # Pull latest changes to ensure we're up to date
+        //                 git pull origin dev
+
+        //                 # Apply version changes
+        //                 git add pom.xml
+        //                 NEW_VERSION=$(./mvnw help:evaluate -Dexpression=project.version -q -DforceStdout)
+        //                 git commit -m "Bump version to ${NEW_VERSION} [skip ci]" || true
+
+        //                 # Push to dev (will fail if there are conflicts, which is safer)
+        //                 git push origin dev || echo "Warning: Could not push to dev. Manual intervention may be required."
+        //             '''
+        //         }
+        //     }
+        // }
+    }
+
+    post {
+        always {
+            echo 'Pipeline execution completed'
+            cleanWs(deleteDirs: true, patterns: [
+                [pattern: 'target/**', type: 'INCLUDE']
+            ])
+        }
+        success {
+            echo "Build successful! Version ${env.APP_VERSION} has been built and uploaded to Nexus."
+        }
+        failure {
+            echo 'Build failed!'
+        }
+    }
+}
