@@ -83,16 +83,9 @@ public class CmdLineSeedDatabase implements CommandLineRunner {
      */
     @Override
     public void run(String... args) throws Exception {
-        // Determine the active profile
-        boolean isDevProfile = Arrays.asList(environment.getActiveProfiles()).contains("dev");
-        if (isDevProfile) {
-            // Development profile: Insert data regardless of existing records
+        // Seed data only if tables are empty (for both dev and prod)
+        if (userRepository.count() == 0 && adRepository.count() == 0) {
             seedData();
-        } else {
-            // Production profile: Insert data only if tables are empty
-            if (userRepository.count() == 0 && adRepository.count() == 0) {
-                seedData();
-            }
         }
     }
 
