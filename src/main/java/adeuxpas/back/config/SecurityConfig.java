@@ -83,7 +83,8 @@ public class SecurityConfig {
                                 "/swagger-ui.html",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/api/webhooks/**")
+                                "/api/webhooks/**",
+                                "/backend-version.json")
                         .permitAll()
                         // Any other request must be authenticated
                         .anyRequest().authenticated())
