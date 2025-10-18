@@ -53,27 +53,6 @@ pipeline {
             }
         }
 
-        stage('Compile') {
-            steps {
-                echo 'Compiling source code...'
-                sh './mvnw -B clean compile'
-            }
-        }
-
-        stage('Run Tests') {
-            steps {
-                echo 'Running unit tests...'
-                sh './mvnw -B test -Dtest=!*IntegrationTest'
-            }
-        }
-
-        stage('Package') {
-            steps {
-                echo 'Packaging application...'
-                sh './mvnw -B package -DskipTests'
-            }
-        }
-
         stage('Create Version File') {
             steps {
                 script {
@@ -95,6 +74,27 @@ pipeline {
                     echo "Version file created:"
                     sh 'cat src/main/resources/static/backend-version.json'
                 }
+            }
+        }
+
+        stage('Compile') {
+            steps {
+                echo 'Compiling source code...'
+                sh './mvnw -B clean compile'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo 'Running unit tests...'
+                sh './mvnw -B test -Dtest=!*IntegrationTest'
+            }
+        }
+
+        stage('Package') {
+            steps {
+                echo 'Packaging application...'
+                sh './mvnw -B package -DskipTests'
             }
         }
 
