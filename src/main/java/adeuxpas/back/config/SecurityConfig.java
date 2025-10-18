@@ -2,6 +2,7 @@ package adeuxpas.back.config;
 
 import adeuxpas.back.auth.JWTFilter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -29,9 +30,12 @@ public class SecurityConfig {
 
     private final JWTFilter jwtFilter;
 
+    @Value("${cors.allowed.origins}")
+    private String allowedOrigins;
+
     /**
      * Constructor for SecurityConfig.
-     * 
+     *
      * @param jwtFilter The JWT filter for authentication.
      */
     public SecurityConfig(@Autowired JWTFilter jwtFilter) {
@@ -52,12 +56,14 @@ public class SecurityConfig {
                 // HTTP security.
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration configuration = new CorsConfiguration();
-                    configuration.setAllowedOrigins(List.of("http://localhost","http://localhost:4200", "http://51.44.22.28")); // self-explanatory
-                    configuration.setAllowedMethods(Arrays.asList("GET", "PATCH", "POST", "PUT", "DELETE")); // self-explanatory
+                    // Parse comma-separated origins from properties file
+                    configuration.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+                    configuration.setAllowedMethods(Arrays.asList("GET", "PATCH", "POST", "PUT", "DELETE", "OPTIONS"));
                     // For ex: standard headers like Content-Type, Authorization, etc.,
                     // but also custom headers that the frontend application might include in its
                     // requests.
-                    configuration.setAllowedHeaders(List.of("Content-Type", "Authorization"));
+                    configuration.setAllowedHeaders(List.of("*")); // Allow all headers
+                    configuration.setAllowCredentials(true); // Allow credentials (cookies, authorization headers)
                     return configuration;
                 }))
                 // Disable Cross-Site Request Forgery (CSRF) protection for our app,
