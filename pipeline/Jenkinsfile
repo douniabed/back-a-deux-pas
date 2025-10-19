@@ -51,7 +51,7 @@ pipeline {
                     echo "Artifact Version (from pom.xml): ${env.ARTIFACT_VERSION}"
 
                     // Set build display name with version and commit ID
-                    currentBuild.displayName = "#${env.BUILD_NUMBER} - ${env.APP_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER} - ${env.APP_VERSION} (${env.GIT_COMMIT.take(7)})"
                 }
             }
         }
