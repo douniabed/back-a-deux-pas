@@ -128,62 +128,20 @@ pipeline {
                 }
             }
         }
-
-        // stage('Create Release') {
-        //     when {
-        //         branch 'main'
-        //     }
-        //     steps {
-        //         script {
-        //             echo "Creating release for version ${env.APP_VERSION}..."
-
-        //             // Increment version for next development cycle
-        //             sh '''
-        //                 # Get current version without -SNAPSHOT
-        //                 CURRENT_VERSION=$(./mvnw -B help:evaluate -Dexpression=project.version -q -DforceStdout | sed 's/-SNAPSHOT//')
-
-        //                 # Increment patch version
-        //                 NEW_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$NF = $NF + 1;} 1' | sed 's/ /./g')
-
-        //                 echo "Current version: ${CURRENT_VERSION}"
-        //                 echo "New version: ${NEW_VERSION}-SNAPSHOT"
-
-        //                 # Update pom.xml version
-        //                 ./mvnw -B versions:set -DnewVersion=${NEW_VERSION}-SNAPSHOT -DgenerateBackupPoms=false
-
-        //                 echo "Version bumped to ${NEW_VERSION}-SNAPSHOT"
-        //             '''
-
-        //             // Commit version bump directly to dev branch (no PR)
-        //             sh '''
-        //                 git config user.name "Jenkins"
-        //                 git config user.email "jenkins@adeuxpas.com"
-
-        //                 # Fetch latest dev branch
-        //                 git fetch origin dev:dev
-
-        //                 # Checkout dev branch
-        //                 git checkout dev
-
-        //                 # Pull latest changes to ensure we're up to date
-        //                 git pull origin dev
-
-        //                 # Apply version changes
-        //                 git add pom.xml
-        //                 NEW_VERSION=$(./mvnw -B help:evaluate -Dexpression=project.version -q -DforceStdout)
-        //                 git commit -m "Bump version to ${NEW_VERSION} [skip ci]" || true
-
-        //                 # Push to dev (will fail if there are conflicts, which is safer)
-        //                 git push origin dev || echo "Warning: Could not push to dev. Manual intervention may be required."
-        //             '''
-        //         }
-        //     }
-        // }
     }
 
     post {
         always {
             echo 'Pipeline execution completed'
+
+            // Archive build artifact
+            script {
+                if (fileExists("${env.APP_NAME}-${env.APP_VERSION}.jar")) {
+                    archiveArtifacts artifacts: "${env.APP_NAME}-${env.APP_VERSION}.jar", fingerprint: true
+                    echo "Build artifact ${env.APP_NAME}-${env.APP_VERSION}.jar archived"
+                }
+            }
+
             cleanWs(deleteDirs: true, patterns: [
                 [pattern: 'target/**', type: 'INCLUDE']
             ])
