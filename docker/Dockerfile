@@ -3,9 +3,10 @@ FROM eclipse-temurin:21-jre
 
 ARG APP_NAME=back-a-deux-pas
 ARG APP_VERSION=2.0.0-SNAPSHOT
+ARG APP_UID=1000
 
 # Create app user to avoid running app as root
-RUN useradd -U -m -d /app/ -s /bin/bash app-user
+RUN useradd -U -m -d /app/ -s /bin/bash -u ${APP_UID} app-user
 
 USER app-user
 WORKDIR /app
