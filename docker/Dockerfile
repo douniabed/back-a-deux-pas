@@ -4,6 +4,7 @@ FROM eclipse-temurin:21-jre
 ARG APP_NAME=back-a-deux-pas
 ARG APP_VERSION=2.0.0-SNAPSHOT
 ARG APP_UID=1001
+ARG SPRING_PROFILES_ACTIVE=docker
 
 # Create app user to avoid running app as root
 RUN useradd -U -m -d /app/ -s /bin/bash -u ${APP_UID} app-user
@@ -19,5 +20,5 @@ USER app-user
 EXPOSE 8081
 
 # Run with configurable Spring profile via environment variable
-ENV SPRING_PROFILES_ACTIVE=docker
+ENV SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
 CMD ["java", "-jar", "/app/app.jar"]
