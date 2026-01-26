@@ -19,5 +19,5 @@ USER app-user
 EXPOSE 8081
 
 # Run with configurable Spring profile via environment variable
-ENV SPRING_PROFILES_ACTIVE=prod
+ENV SPRING_PROFILES_ACTIVE=docker
 CMD ["java", "-jar", "/app/app.jar"]
