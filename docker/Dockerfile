@@ -12,8 +12,8 @@ USER app-user
 WORKDIR /app
 
 # Copy pre-built JAR from CI pipeline
-COPY --chown=${APP_UID}:${APP_UID} ./target/${APP_NAME}-${APP_VERSION}.jar /app/${APP_NAME}.jar
+COPY --chown=${APP_UID}:${APP_UID} ./target/${APP_NAME}-${APP_VERSION}.jar /app/back-a-deux-pas.jar
 
 # set default command to start application and expose application port
-CMD ["sh", "-c", "java -Dspring.profiles.active=docker -jar /app/${APP_NAME}.jar"]
+CMD ["sh", "-c", "java -Dspring.profiles.active=docker -jar /app/back-a-deux-pas.jar"]
 EXPOSE 8081
