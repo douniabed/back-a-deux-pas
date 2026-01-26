@@ -13,6 +13,8 @@ pipeline {
         NEXUS_URL = 'http://nexus.local:8085'
         NEXUS_REPO = 'maven-adp-back'
         NEXUS_CREDENTIALS = credentials('nexus-credentials')
+        DOCKER_IMAGE = 'douniabed/back-a-deux-pas'
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
     }
 
     stages {
@@ -23,7 +25,7 @@ pipeline {
             }
         }
 
-        stage('Determine Version') {
+        stage('Create Version File') {
             steps {
                 script {
                     // Extract version from pom.xml
@@ -48,18 +50,9 @@ pipeline {
 
                     echo "Application Version: ${env.APP_VERSION}"
                     echo "Artifact Type: ${env.ARTIFACT_TYPE}"
-                    echo "Artifact Version (from pom.xml): ${env.ARTIFACT_VERSION}"
-
-                    // Set build display name with version and commit ID
                     currentBuild.displayName = "#${env.BUILD_NUMBER} - ${env.APP_VERSION} (${env.GIT_COMMIT.take(7)})"
-                }
-            }
-        }
 
-        stage('Create Version File') {
-            steps {
-                script {
-                    echo 'Creating backend-version.json file...'
+                    // Create backend-version.json
                     def versionInfo = [
                         name: env.APP_NAME,
                         version: env.APP_VERSION,
@@ -69,12 +62,8 @@ pipeline {
                         buildTime: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
                         artifactType: env.ARTIFACT_TYPE
                     ]
-
-                    // Create backend-version.json in src/main/resources/static for HTTP access
                     sh 'mkdir -p src/main/resources/static'
                     writeJSON file: 'src/main/resources/static/backend-version.json', json: versionInfo, pretty: 4
-
-                    echo "Version file created:"
                     sh 'cat src/main/resources/static/backend-version.json'
                 }
             }
@@ -98,6 +87,8 @@ pipeline {
             steps {
                 echo 'Packaging application...'
                 sh './mvnw -B package -DskipTests'
+                // Stash files needed for Docker build
+                stash includes: 'target/**/*.jar,docker/**,.dockerignore', name: 'docker-build-files'
             }
         }
 
@@ -125,6 +116,53 @@ pipeline {
                     )
 
                     echo "JAR uploaded successfully to Nexus"
+                }
+            }
+        }
+
+        stage('Docker Build') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                unstash 'docker-build-files'
+                script {
+                    def latestTag = 'latest'
+                    // Clean up all old Docker images for this repo before build
+                    sh """
+                        docker images ${DOCKER_IMAGE} -q | xargs -r docker rmi -f || true
+                    """
+                    echo "Building Docker image ${env.DOCKER_IMAGE}:${env.APP_VERSION} and ${latestTag}..."
+                    sh """
+                        docker build \
+                            -f docker/Dockerfile \
+                            --build-arg APP_NAME=${APP_NAME} \
+                            --build-arg APP_VERSION=${ARTIFACT_VERSION} \
+                            -t ${DOCKER_IMAGE}:${APP_VERSION} \
+                            -t ${DOCKER_IMAGE}:${latestTag} \
+                            .
+                    """
+                    env.DOCKER_LATEST_TAG = latestTag
+                    echo "Docker image built successfully"
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            agent {
+                label 'docker'
+            }
+            steps {
+                script {
+                    def latestTag = 'latest'
+                    echo "Pushing Docker image to DockerHub..."
+                    sh """
+                        echo ${DOCKERHUB_CREDENTIALS_PSW} | docker login -u ${DOCKERHUB_CREDENTIALS_USR} --password-stdin
+                        docker push ${DOCKER_IMAGE}:${APP_VERSION}
+                        docker push ${DOCKER_IMAGE}:${latestTag}
+                        docker logout
+                    """
+                    echo "Docker image pushed successfully to DockerHub"
                 }
             }
         }
