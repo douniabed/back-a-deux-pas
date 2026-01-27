@@ -173,12 +173,7 @@ pipeline {
             echo 'Pipeline execution completed'
 
             // Archive build artifact
-            script {
-                if (fileExists("${env.APP_NAME}-${env.APP_VERSION}.jar")) {
-                    archiveArtifacts artifacts: "${env.APP_NAME}-${env.APP_VERSION}.jar", fingerprint: true
-                    echo "Build artifact ${env.APP_NAME}-${env.APP_VERSION}.jar archived"
-                }
-            }
+            archiveArtifacts artifacts: "target/*.jar", allowEmptyArchive: true, fingerprint: true
 
             cleanWs(deleteDirs: true, patterns: [
                 [pattern: 'target/**', type: 'INCLUDE']
