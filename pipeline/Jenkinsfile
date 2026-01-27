@@ -137,7 +137,7 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
+        stage('Docker Build/Push') {
             agent {
                 label 'docker'
             }
@@ -162,14 +162,7 @@ pipeline {
                     env.DOCKER_LATEST_TAG = latestTag
                     echo "Docker image built successfully"
                 }
-            }
-        }
 
-        stage('Docker Push') {
-            agent {
-                label 'docker'
-            }
-            steps {
                 script {
                     def latestTag = 'latest'
                     echo "Pushing Docker image to DockerHub..."
@@ -180,6 +173,27 @@ pipeline {
                         docker logout
                     """
                     echo "Docker image pushed successfully to DockerHub"
+                }
+            }
+        }
+
+        stage('Deploy to DEV') {
+            when {
+                environment name: 'ARTIFACT_TYPE', value: 'snapshot'
+            }
+            steps {
+                script {
+                    catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                        echo "Triggering deployment to DEV environment..."
+                        build job: 'deploy-a-deux-pas/main',
+                            wait: true,
+                            parameters: [
+                                string(name: 'TARGET_ENV', value: 'DEV'),
+                                string(name: 'BACK_APP_VERSION', value: env.APP_VERSION),
+                                string(name: 'FRONT_APP_VERSION', value: '')
+                            ]
+                        echo "Deployment to DEV completed successfully"
+                    }
                 }
             }
         }
