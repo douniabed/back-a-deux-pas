@@ -15,6 +15,7 @@ pipeline {
         NEXUS_CREDENTIALS = credentials('nexus-credentials')
         DOCKER_IMAGE = 'douniabed/back-a-deux-pas'
         DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials')
+        SONAR_TOKEN = credentials('sonarcloud-token')
     }
 
     stages {
@@ -80,6 +81,22 @@ pipeline {
             steps {
                 echo 'Running unit tests...'
                 sh './mvnw -B test -Dtest=!*IntegrationTest'
+            }
+        }
+
+        stage('SonarCloud Analysis') {
+            steps {
+                echo 'Running SonarCloud analysis...'
+                withSonarQubeEnv('SonarCloud') {
+                    sh '''
+                        ./mvnw -B sonar:sonar \
+                            -Dsonar.host.url=https://sonarcloud.io \
+                            -Dsonar.organization=a-deux-pas-simplon \
+                            -Dsonar.projectKey=back-a-deux-pas \
+                            -Dsonar.projectName=back-a-deux-pas \
+                            -Dsonar.token=${SONAR_TOKEN}
+                    '''
+                }
             }
         }
 
